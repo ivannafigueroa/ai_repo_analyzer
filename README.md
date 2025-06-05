@@ -1,4 +1,4 @@
-# AI Repo Analyzer
+# AI Security Repo Analyzer
 
 This repository includes a script `ai_repo_analyzer.py` that scans a git
 repository for vulnerabilities inspired by several OWASP lists. It performs
