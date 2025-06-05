@@ -19,6 +19,11 @@ import shutil
 import json
 from typing import List, Dict
 
+try:
+    import openai  # Optional, used for AI-powered analysis
+except ImportError:
+    openai = None
+
 OWASP_DESCRIPTIONS = {
     "INJECTION": "Code constructs that allow injection of commands or queries.",
     "HARDCODED_SECRET": "Secrets such as passwords or API keys appear hardcoded in code.",
@@ -94,6 +99,8 @@ def list_files(repo_path: str) -> List[str]:
     """Return a list of source files under repo_path."""
     files = []
     for root, dirs, filenames in os.walk(repo_path):
+        if ".git" in root.split(os.sep):
+            continue
         for name in filenames:
             if name.startswith("."):
                 continue
@@ -118,6 +125,41 @@ def scan_file(path: str) -> List[Dict[str, str]]:
                 "mitigation": rule["mitigation"],
                 "file": path,
             })
+
+    # Optionally send file content to OpenAI for deeper analysis
+    if openai is not None and os.getenv("OPENAI_API_KEY"):
+        openai.api_key = os.getenv("OPENAI_API_KEY")
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a security analyst identifying vulnerabilities in source code. "
+                    "Return a JSON array where each element has keys: vulnerability, description, "
+                    "exploitation, and mitigation. Use OWASP Top 10, Agentic Threats, and LLM "
+                    "guidelines where relevant."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"Analyze the following code from {path}:\n\n{content[:3000]}",
+            },
+        ]
+        try:
+            resp = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=messages,
+                temperature=0,
+            )
+            ai_output = resp.choices[0].message.content
+            try:
+                ai_findings = json.loads(ai_output)
+                for item in ai_findings:
+                    item["file"] = path
+                    results.append(item)
+            except json.JSONDecodeError:
+                results.append({"file": path, "error": "Failed to parse OpenAI response", "raw": ai_output})
+        except Exception as exc:
+            results.append({"file": path, "error": str(exc)})
     return results
 
 
