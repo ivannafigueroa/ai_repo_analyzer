@@ -1,4 +1,4 @@
-# compliance-test1
+# AI Repo Analyzer
 
 This repository includes a script `ai_repo_analyzer.py` that scans a git
 repository for vulnerabilities inspired by several OWASP lists. It performs
